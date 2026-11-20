@@ -1,0 +1,229 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Kobo Expense Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;800&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: phone-first ledger. Month header, budget meter, category bars, add form, then the day-by-day list. Two columns on wide screens. */
+:root{
+  --bg:#FAFAF8; --card:#FFFFFF; --ink:#1A1814; --muted:#6B665C; --line:#E6E2DA;
+  --amber:#B45309; --amber-soft:#FBEEDB; --over:#C0362C; --ok:#2F7D4F;
+  --sans:"Manrope","Segoe UI",system-ui,sans-serif;
+  --mono:"DM Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#13120F; --card:#1C1A16; --ink:#EEEAE2; --muted:#A39D90; --line:#2E2B25;
+  --amber:#F0A245; --amber-soft:#33261A; --over:#F27B6E; --ok:#5DC48A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#13120F; --card:#1C1A16; --ink:#EEEAE2; --muted:#A39D90; --line:#2E2B25;
+  --amber:#F0A245; --amber-soft:#33261A; --over:#F27B6E; --ok:#5DC48A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
+.wrap{max-width:980px;margin:0 auto;padding-block:24px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:20px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px}
+.brand{font-weight:800;font-size:1.35rem;letter-spacing:-.01em}
+.brand span{color:var(--amber)}
+.month{display:flex;align-items:center;gap:6px}
+.month b{min-width:130px;text-align:center;font-weight:600}
+.nav{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;font-size:16px}
+button:focus-visible,input:focus,select:focus{outline:2px solid var(--amber);outline-offset:1px}
+.banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 14px}
+.link{background:none;border:0;color:var(--amber);font:600 13px var(--sans);cursor:pointer;padding:0}
+.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;align-items:start}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+h2{margin:0;font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.spent{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.spent .big{font-size:2.3rem;font-weight:800;letter-spacing:-.02em}
+.meter{height:10px;border-radius:5px;background:var(--amber-soft);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--amber);border-radius:5px}
+.meter.over i{background:var(--over)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{display:flex;flex-direction:column}
+.stats small{color:var(--muted);font-size:12px}
+.stats strong{font-size:15px}
+.budget-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.budget-row input{width:140px}
+
+.cats{display:flex;flex-direction:column;gap:10px}
+.cat{display:grid;grid-template-columns:120px 1fr auto;gap:10px;align-items:center;font-size:14px}
+.cat .track{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.cat .track i{display:block;height:100%;background:var(--amber);border-radius:4px}
+@media (max-width:420px){.cat{grid-template-columns:96px 1fr auto}}
+.empty{color:var(--muted);font-size:14px}
+
+form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+form .full{grid-column:1/-1}
+label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+input,select{font:15px var(--sans);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+.add{grid-column:1/-1;background:var(--amber);color:var(--card);border:0;border-radius:8px;padding:12px;font:700 15px var(--sans);cursor:pointer}
+.err{grid-column:1/-1;color:var(--over);font-size:13px;min-height:1em}
+
+.day{display:flex;flex-direction:column;gap:2px}
+.day h3{margin:8px 0 4px;font-size:12px;font-weight:600;color:var(--muted)}
+.tx{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.dot{width:30px;height:30px;border-radius:8px;background:var(--amber-soft);color:var(--amber);display:grid;place-items:center;font-size:12px;font-weight:800}
+.tx .what{min-width:0}
+.tx .what div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx .what small{color:var(--muted);font-size:12px}
+.del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:18px;padding:4px}
+.del:hover{color:var(--over)}
+@media (prefers-reduced-motion:no-preference){.meter i,.track i{transition:width .4s ease}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">Kobo<span>.</span></div>
+    <div class="month">
+      <button class="nav" id="prev" aria-label="Previous month">‹</button>
+      <b id="monthLabel"></b>
+      <button class="nav" id="next" aria-label="Next month">›</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden>
+    <span>You're looking at example spending. Add your own, or clear it to start fresh.</span>
+    <button class="link" id="clearEx">Clear examples</button>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card">
+        <h2>Spent this month</h2>
+        <div class="spent"><span class="big num" id="spent"></span><span class="num" id="ofBudget" style="color:var(--muted)"></span></div>
+        <div class="meter" id="meter"><i id="meterFill"></i></div>
+        <div class="stats">
+          <div><small id="leftLabel">Left</small><strong class="num" id="left"></strong></div>
+          <div><small>Daily average</small><strong class="num" id="avg"></strong></div>
+          <div><small>Transactions</small><strong class="num" id="count"></strong></div>
+        </div>
+        <div class="budget-row"><label for="budget" style="flex-direction:row;align-items:center;gap:8px">Monthly budget (₦)</label><input id="budget" type="number" min="0" step="500" inputmode="numeric"></div>
+      </section>
+
+      <section class="card">
+        <h2>Where it went</h2>
+        <div class="cats" id="cats"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2>Add expense</h2>
+        <form id="form" novalidate>
+          <label>Amount (₦)<input id="amt" type="number" min="1" step="50" inputmode="numeric" placeholder="2500"></label>
+          <label>Category<select id="cat"></select></label>
+          <label class="full">Note<input id="note" placeholder="e.g. Shawarma after class"></label>
+          <label class="full">Date<input id="date" type="date"></label>
+          <div class="err" id="err" role="alert"></div>
+          <button class="add" type="submit">Add expense</button>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>History</h2>
+        <div id="list"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS = ["Food","Transport","Data & airtime","Rent & bills","School","Fun","Other"];
+const KEY = "kobo-tracker-v1";
+const fmt = n => new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:0}).format(n);
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const mkey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+const $ = s => document.getElementById(s);
+
+function examples(){
+  const t = new Date(), y=t.getFullYear(), m=t.getMonth(), day=t.getDate();
+  const at = d => iso(new Date(y,m,Math.max(1,Math.min(day,d))));
+  const rows = [[1,"Rent & bills",15000,"Hostel electricity share"],[2,"Data & airtime",3500,"Monthly data bundle"],
+    [3,"Food",2800,"Jollof and chicken"],[4,"Transport",1200,"Bolt to campus"],[6,"School",4500,"Printing project report"],
+    [7,"Food",6200,"Groceries for the week"],[9,"Fun",3000,"Movie night"],[10,"Transport",800,"Keke"],[12,"Food",1500,"Suya"]];
+  return rows.map(([d,c,a,n],i)=>({id:"ex"+i,date:at(d),cat:c,amount:a,note:n,example:true}));
+}
+let db;
+function load(){
+  try{ db = JSON.parse(localStorage.getItem(KEY)); }catch(e){ db=null; }
+  if(!db || !Array.isArray(db.tx)) db = {tx:examples(), budgets:{[mkey(new Date())]:60000}};
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} }
+
+let view = new Date(); view.setDate(1);
+
+function render(){
+  const k = mkey(view);
+  $("monthLabel").textContent = view.toLocaleDateString("en-NG",{month:"long",year:"numeric"});
+  const tx = db.tx.filter(t=>t.date.startsWith(k)).sort((a,b)=>b.date.localeCompare(a.date));
+  const spent = tx.reduce((s,t)=>s+t.amount,0), budget = db.budgets[k]||0;
+  $("spent").textContent = fmt(spent);
+  $("ofBudget").textContent = budget? `of ${fmt(budget)}` : "no budget set";
+  const p = budget? spent/budget : 0;
+  $("meterFill").style.width = Math.min(100,p*100)+"%";
+  $("meter").classList.toggle("over", p>1);
+  const now = new Date(), isCur = mkey(now)===k;
+  const days = isCur? now.getDate() : new Date(view.getFullYear(),view.getMonth()+1,0).getDate();
+  $("leftLabel").textContent = budget && spent>budget ? "Over by" : "Left";
+  $("left").textContent = budget? fmt(Math.abs(budget-spent)) : "–";
+  $("left").style.color = budget && spent>budget ? "var(--over)" : "";
+  $("avg").textContent = fmt(Math.round(spent/Math.max(1,days)));
+  $("count").textContent = tx.length;
+  if(document.activeElement!==$("budget")) $("budget").value = budget||"";
+  $("banner").hidden = !db.tx.some(t=>t.example);
+
+  const by = {}; tx.forEach(t=>by[t.cat]=(by[t.cat]||0)+t.amount);
+  const sorted = Object.entries(by).sort((a,b)=>b[1]-a[1]), top = sorted[0]?.[1]||1;
+  $("cats").innerHTML = sorted.length ? sorted.map(([c,a])=>`<div class="cat"><span>${c}</span><span class="track"><i style="width:${a/top*100}%"></i></span><span class="num">${fmt(a)}</span></div>`).join("")
+    : `<p class="empty">No spending logged for this month yet.</p>`;
+
+  const groups = {}; tx.forEach(t=>(groups[t.date]=groups[t.date]||[]).push(t));
+  const list = $("list"); list.innerHTML = "";
+  if(!tx.length){ list.innerHTML = `<p class="empty">Nothing here yet. Add your first expense above.</p>`; return; }
+  Object.keys(groups).forEach(d=>{
+    const g = document.createElement("div"); g.className="day";
+    const h = document.createElement("h3");
+    h.textContent = new Date(d+"T12:00").toLocaleDateString("en-NG",{weekday:"short",day:"numeric",month:"short"});
+    g.appendChild(h);
+    groups[d].forEach(t=>{
+      const r = document.createElement("div"); r.className="tx";
+      r.innerHTML = `<span class="dot"></span><div class="what"><div></div><small></small></div><span class="num"></span><button class="del" aria-label="Delete">×</button>`;
+      r.querySelector(".dot").textContent = t.cat[0];
+      r.querySelector(".what div").textContent = t.note || t.cat;
+      r.querySelector(".what small").textContent = t.cat;
+      r.querySelector(".num").textContent = fmt(t.amount);
+      r.querySelector(".del").onclick = ()=>{ db.tx = db.tx.filter(x=>x.id!==t.id); save(); render(); };
+      g.appendChild(r);
+    });
+    list.appendChild(g);
+  });
+}
+
+load();
+$("cat").innerHTML = CATS.map(c=>`<option>${c}</option>`).join("");
+$("date").value = iso(new Date());
+$("prev").onclick = ()=>{ view.setMonth(view.getMonth()-1); render(); };
+$("next").onclick = ()=>{ view.setMonth(view.getMonth()+1); render(); };
+$("budget").addEventListener("input", e=>{ const v=Math.max(0,parseInt(e.target.value)||0); db.budgets[mkey(view)]=v; save(); render(); });
+$("clearEx").onclick = ()=>{ db.tx = db.tx.filter(t=>!t.example); save(); render(); };
+$("form").addEventListener("submit", e=>{
+  e.preventDefault();
+  const amount = Math.round(Number($("amt").value)), date = $("date").value;
+  if(!amount || amount<1){ $("err").textContent="Enter an amount in naira, e.g. 2500."; return; }
+  if(!date){ $("err").textContent="Pick a date."; return; }
+  $("err").textContent="";
+  db.tx.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,6), date, cat:$("cat").value, amount, note:$("note").value.trim()});
+  save();
+  const d = new Date(date+"T12:00"); view = new Date(d.getFullYear(), d.getMonth(), 1);
+  $("amt").value=""; $("note").value="";
+  render();
+});
+render();
+</script>
+
+</body></html>

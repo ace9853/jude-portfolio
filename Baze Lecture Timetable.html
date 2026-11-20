@@ -1,0 +1,236 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Baze Lecture Timetable</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=Nunito+Sans:wght@400;600;700&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: "up next" board on top like a departures screen, day tabs, then the day's classes as time blocks. Add-class form sits beside on wide screens. */
+:root{
+  --bg:#F3F7F8; --card:#FFFFFF; --ink:#0F1C22; --muted:#5A6B72; --line:#D9E3E6;
+  --teal:#0E7490; --teal-soft:#DDF0F5; --now:#0B8A5E; --warn:#B4500A;
+  --display:"Outfit","Segoe UI",system-ui,sans-serif;
+  --body:"Nunito Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"Martian Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1417; --card:#131E22; --ink:#E2EDF0; --muted:#93A6AD; --line:#22323A;
+  --teal:#4DC3DF; --teal-soft:#123038; --now:#47CF95; --warn:#F2A15A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1417; --card:#131E22; --ink:#E2EDF0; --muted:#93A6AD; --line:#22323A;
+  --teal:#4DC3DF; --teal-soft:#123038; --now:#47CF95; --warn:#F2A15A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:1000px;margin:0 auto;padding-block:24px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:20px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px}
+h1{margin:0;font:800 1.6rem var(--display);letter-spacing:-.01em}
+.clock{font-size:13px;color:var(--muted)}
+button:focus-visible,input:focus,select:focus{outline:2px solid var(--teal);outline-offset:1px}
+
+.board{background:var(--ink);color:var(--bg);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:6px}
+.board .lbl{font:500 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;opacity:.7}
+.board .course{font:700 clamp(1.3rem,4vw,1.8rem)/1.2 var(--display);text-wrap:balance}
+.board .meta{font-size:14px;opacity:.8}
+.board .count{font:500 clamp(1.6rem,6vw,2.4rem)/1.1 var(--mono);color:var(--teal-soft);margin-top:6px}
+.board.live .count{color:var(--now)}
+
+.banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:10px;padding:10px 14px}
+.link{background:none;border:0;color:var(--teal);font:700 13px var(--body);cursor:pointer;padding:0}
+
+.grid{display:grid;grid-template-columns:1.3fr .7fr;gap:20px;align-items:start}
+@media (max-width:780px){.grid{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.tab{flex:1 0 auto;min-width:56px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:8px 10px;cursor:pointer;font:700 14px var(--body)}
+.tab small{display:block;font:400 11px var(--mono);color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--teal);border-color:var(--teal);color:var(--card)}
+.tab[aria-selected="true"] small{color:var(--card);opacity:.85}
+
+.classes{display:flex;flex-direction:column;gap:10px}
+.cls{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:86px 1fr auto;gap:14px;align-items:start}
+.cls.live{border-color:var(--now);box-shadow:inset 4px 0 0 var(--now)}
+.cls.done{opacity:.55}
+.cls .time{font:500 13px/1.5 var(--mono);color:var(--teal)}
+.cls .time span{display:block;color:var(--muted)}
+.cls h3{margin:0;font:700 1rem var(--display)}
+.cls .code{font:500 12px var(--mono);color:var(--muted)}
+.cls .where{font-size:13px;color:var(--muted)}
+.pill{font:600 11px var(--mono);border-radius:999px;padding:2px 8px;display:inline-block;margin-top:4px}
+.pill.now{background:var(--now);color:var(--card)}
+.pill.clash{border:1px solid var(--warn);color:var(--warn)}
+.del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:18px;padding:2px 4px}
+.del:hover{color:var(--warn)}
+.empty{color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:12px;padding:18px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:12px}
+h2{margin:0;font:700 1rem var(--display)}
+form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+form .full{grid-column:1/-1}
+label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+input,select{font:15px var(--body);color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+.add{grid-column:1/-1;background:var(--teal);color:var(--card);border:0;border-radius:8px;padding:12px;font:700 15px var(--body);cursor:pointer}
+.err{grid-column:1/-1;color:var(--warn);font-size:13px;min-height:1em}
+.week{font-size:13px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Lecture Timetable</h1>
+    <span class="clock mono" id="clock"></span>
+  </header>
+
+  <section class="board" id="board" aria-live="polite">
+    <span class="lbl" id="bLbl">Up next</span>
+    <span class="course" id="bCourse"></span>
+    <span class="meta" id="bMeta"></span>
+    <span class="count" id="bCount"></span>
+  </section>
+
+  <div class="banner" id="banner" hidden>
+    <span>This is an example 400L timetable. Add your real courses, then clear the examples.</span>
+    <button class="link" id="clearEx">Clear examples</button>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="classes" id="classes"></div>
+    </div>
+    <div class="col">
+      <section class="card">
+        <h2>Add a class</h2>
+        <form id="form" novalidate>
+          <label>Course code<input id="fCode" placeholder="SEN 407"></label>
+          <label>Day<select id="fDay"></select></label>
+          <label class="full">Course title<input id="fTitle" placeholder="Mobile App Development"></label>
+          <label>Starts<input id="fStart" type="time" value="09:00"></label>
+          <label>Ends<input id="fEnd" type="time" value="11:00"></label>
+          <label class="full">Venue<input id="fVenue" placeholder="Lecture Hall 2"></label>
+          <div class="err" id="err" role="alert"></div>
+          <button class="add" type="submit">Add class</button>
+        </form>
+        <p class="week" id="week"></p>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat"];
+const KEY = "baze-timetable-v1";
+const $ = s => document.getElementById(s);
+const toMin = t => { const [h,m]=t.split(":").map(Number); return h*60+m; };
+const fmtT = t => { let [h,m]=t.split(":").map(Number); const ap=h>=12?"pm":"am"; h=h%12||12; return `${h}:${String(m).padStart(2,"0")}${ap}`; };
+const dayIdx = d => (d.getDay()+6)%7; // Mon=0 … Sun=6
+
+const EXAMPLES = [
+  ["SEN 401","Software Project Management",0,"09:00","11:00","Lecture Hall 1"],
+  ["SEN 407","Mobile App Development",0,"13:00","15:00","Computer Lab 2"],
+  ["SEN 403","Software Testing & Quality Assurance",1,"10:00","12:00","Room 204"],
+  ["CSC 409","Artificial Intelligence",2,"08:00","10:00","Lecture Hall 3"],
+  ["SEN 405","Human-Computer Interaction",2,"14:00","16:00","Room 110"],
+  ["SEN 407","Mobile App Development (Lab)",3,"11:00","13:00","Computer Lab 2"],
+  ["SEN 499","Final Year Project Meeting",4,"10:00","11:00","Supervisor's office"]
+].map(([code,title,day,start,end,venue],i)=>({id:"ex"+i,code,title,day,start,end,venue,example:true}));
+
+let classes;
+try{ classes = JSON.parse(localStorage.getItem(KEY)); }catch(e){ classes=null; }
+if(!Array.isArray(classes)) classes = EXAMPLES.slice();
+const save = ()=>{ try{ localStorage.setItem(KEY, JSON.stringify(classes)); }catch(e){} };
+
+let sel = Math.min(dayIdx(new Date()), 5);
+if(dayIdx(new Date())===6) sel = 0;
+
+function clashes(c){
+  return classes.some(o=>o.id!==c.id && o.day===c.day && toMin(o.start)<toMin(c.end) && toMin(c.start)<toMin(o.end));
+}
+
+function nextClass(now){
+  const nowDay = dayIdx(now), nowMin = now.getHours()*60+now.getMinutes();
+  const live = classes.find(c=>c.day===nowDay && toMin(c.start)<=nowMin && nowMin<toMin(c.end));
+  if(live) return {c:live, live:true, mins:toMin(live.end)-nowMin};
+  let best=null;
+  classes.forEach(c=>{
+    let diff = ((c.day-nowDay+7)%7)*1440 + toMin(c.start) - nowMin;
+    if(diff<=0) diff += 7*1440;
+    if(!best || diff<best.mins) best={c,mins:diff,live:false};
+  });
+  return best;
+}
+function dur(m){
+  const d=Math.floor(m/1440), h=Math.floor(m%1440/60), mm=m%60;
+  return d? `${d}d ${h}h` : h? `${h}h ${mm}m` : `${mm}m`;
+}
+
+function renderBoard(){
+  const now = new Date();
+  $("clock").textContent = now.toLocaleDateString("en-NG",{weekday:"long",day:"numeric",month:"short"})+" · "+now.toLocaleTimeString("en-NG",{hour:"numeric",minute:"2-digit"});
+  const n = nextClass(now), b=$("board");
+  b.classList.toggle("live", !!n?.live);
+  if(!n){ $("bLbl").textContent="Up next"; $("bCourse").textContent="No classes yet"; $("bMeta").textContent="Add your first course to see what's next."; $("bCount").textContent=""; return; }
+  $("bLbl").textContent = n.live? "In class now" : "Up next";
+  $("bCourse").textContent = `${n.c.code} · ${n.c.title}`;
+  $("bMeta").textContent = `${DAYS[n.c.day]} ${fmtT(n.c.start)} to ${fmtT(n.c.end)} · ${n.c.venue||"Venue not set"}`;
+  $("bCount").textContent = n.live? `ends in ${dur(n.mins)}` : `starts in ${dur(n.mins)}`;
+}
+
+function renderTabs(){
+  const t=$("tabs"); t.innerHTML="";
+  DAYS.forEach((d,i)=>{
+    const n = classes.filter(c=>c.day===i).length;
+    const b=document.createElement("button"); b.className="tab"; b.setAttribute("role","tab");
+    b.setAttribute("aria-selected", i===sel); b.innerHTML=`${d}<small>${n} class${n===1?"":"es"}</small>`;
+    b.onclick=()=>{ sel=i; render(); };
+    t.appendChild(b);
+  });
+}
+
+function renderDay(){
+  const box=$("classes"); box.innerHTML="";
+  const now=new Date(), today=dayIdx(now)===sel, nowMin=now.getHours()*60+now.getMinutes();
+  const list = classes.filter(c=>c.day===sel).sort((a,b)=>toMin(a.start)-toMin(b.start));
+  if(!list.length){ box.innerHTML=`<div class="empty">No classes on ${DAYS[sel]}. Use the form to add one.</div>`; return; }
+  list.forEach(c=>{
+    const live = today && toMin(c.start)<=nowMin && nowMin<toMin(c.end);
+    const done = today && nowMin>=toMin(c.end);
+    const el=document.createElement("article"); el.className="cls"+(live?" live":"")+(done?" done":"");
+    el.innerHTML=`<div class="time">${fmtT(c.start)}<span>${fmtT(c.end)}</span></div>
+      <div><div class="code"></div><h3></h3><div class="where"></div>
+      ${live?'<span class="pill now">Now</span>':''}${clashes(c)?'<span class="pill clash">Time clash</span>':''}</div>
+      <button class="del" aria-label="Remove class">×</button>`;
+    el.querySelector(".code").textContent=c.code;
+    el.querySelector("h3").textContent=c.title;
+    el.querySelector(".where").textContent=c.venue||"Venue not set";
+    el.querySelector(".del").onclick=()=>{ classes=classes.filter(x=>x.id!==c.id); save(); render(); };
+    box.appendChild(el);
+  });
+}
+
+function render(){
+  renderBoard(); renderTabs(); renderDay();
+  $("banner").hidden = !classes.some(c=>c.example);
+  const hrs = classes.reduce((s,c)=>s+(toMin(c.end)-toMin(c.start)),0)/60;
+  $("week").textContent = `${classes.length} classes, ${hrs % 1 ? hrs.toFixed(1) : hrs} hours of lectures a week.`;
+  $("fDay").value = sel;
+}
+
+$("fDay").innerHTML = DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join("");
+$("clearEx").onclick=()=>{ classes=classes.filter(c=>!c.example); save(); render(); };
+$("form").addEventListener("submit", e=>{
+  e.preventDefault();
+  const c={id:Date.now().toString(36), code:$("fCode").value.trim().toUpperCase(), title:$("fTitle").value.trim(),
+    day:Number($("fDay").value), start:$("fStart").value, end:$("fEnd").value, venue:$("fVenue").value.trim()};
+  const err=$("err");
+  if(!c.code||!c.title){ err.textContent="Add a course code and title."; return; }
+  if(!c.start||!c.end||toMin(c.end)<=toMin(c.start)){ err.textContent="End time must be after the start time."; return; }
+  err.textContent = clashes(c)? "Added, but it clashes with another class that day." : "";
+  classes.push(c); save(); sel=c.day;
+  $("fCode").value=""; $("fTitle").value=""; $("fVenue").value="";
+  render();
+});
+render();
+setInterval(renderBoard, 30000);
+</script>
+
+</body></html>
